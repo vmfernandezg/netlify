@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat Computación Cuántica</title>
+
+  <style>
+    body { font-family: system-ui, sans-serif; }
+    #chatkit-root { height: 80vh; max-width: 900px; margin: 2rem auto; }
+  </style>
+
+  <!-- Carga el web component de ChatKit -->
+  <script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
+</head>
+<body>
+  <h1>🧬 Asistente de Computación Cuántica</h1>
+  <div id="chatkit-root"></div>
+
+  <script>
+    window.addEventListener('load', async () => {
+      const root = document.getElementById('chatkit-root');
+      const chatkit = document.createElement('openai-chatkit');
+
+      chatkit.setOptions({
+        api: {
+          // ChatKit (hosted) pide un token corto (client_secret) emitido por TU backend
+          async getClientSecret(current) {
+            const res = await fetch('/.netlify/functions/create-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workflowId: 'WF_ID_AQUI',   // <--- pega tu wf_...
+                version: 'draft'            // quítalo para usar la publicada
+              })
+            });
+            const { client_secret } = await res.json();
+            return client_secret;
+          }
+        },
+        // Opcional: fija idioma, tema, placeholders, etc. (API de opciones)
+        // locale: 'es',
+        // startScreen: { greeting: '¿En qué puedo ayudarte hoy?' },
+      });
+
+      chatkit.classList.add('h-[600px]', 'w-[320px]'); // tamaño mínimo útil
+      root.appendChild(chatkit);
+    });
+  </script>
+</body>
+</html>

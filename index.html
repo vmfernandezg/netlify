@@ -3,16 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chat Computación Cuántica</title>
+  <title>Asistente de Computación Cuántica</title>
 
   <style>
-    body { font-family: system-ui, sans-serif; }
-    #chatkit-root { height: 80vh; max-width: 900px; margin: 2rem auto; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #fafafa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-top: 1.5rem;
+      font-size: 1.8rem;
+    }
+
+    #chatkit-root {
+      height: 80vh;
+      width: 100%;
+      max-width: 900px;
+      margin: 1rem auto;
+      box-sizing: border-box;
+    }
   </style>
 
-  <!-- Carga el web component de ChatKit -->
+  <!-- Carga el componente Web oficial de ChatKit -->
   <script src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js" async></script>
 </head>
+
 <body>
   <h1>🧬 Asistente de Computación Cuántica</h1>
   <div id="chatkit-root"></div>
@@ -24,26 +45,35 @@
 
       chatkit.setOptions({
         api: {
-          // ChatKit (hosted) pide un token corto (client_secret) emitido por TU backend
-          async getClientSecret(current) {
-            const res = await fetch('/.netlify/functions/create-session', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                workflowId: 'wf_68e4181604308190ab399e5767e636e004eb4496b3988cea',   // <--- pega tu wf_...
-                version: 'draft'            // quítalo para usar la publicada
-              })
-            });
-            const { client_secret } = await res.json();
-            return client_secret;
+          // Obtiene el client_secret desde la función serverless
+          async getClientSecret() {
+            try {
+              const response = await fetch('/.netlify/functions/create-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              const data = await response.json();
+
+              if (!response.ok || !data.client_secret) {
+                console.error("Error al crear sesión:", data);
+                throw new Error(data.error || "No se recibió client_secret válido.");
+              }
+
+              return data.client_secret;
+            } catch (err) {
+              console.error("Fallo en getClientSecret:", err);
+              throw err;
+            }
           }
         },
-        // Opcional: fija idioma, tema, placeholders, etc. (API de opciones)
-        // locale: 'es',
-        // startScreen: { greeting: '¿En qué puedo ayudarte hoy?' },
+        // Opciones visuales opcionales
+        locale: 'es',
+        theme: 'light',
+        startScreen: { greeting: '👋 ¡Hola! Soy tu asistente de computación cuántica.' }
       });
 
-      chatkit.classList.add('h-[600px]', 'w-[320px]'); // tamaño mínimo útil
+      // Ajusta tamaño mínimo
+      chatkit.classList.add('h-[600px]', 'w-full');
       root.appendChild(chatkit);
     });
   </script>

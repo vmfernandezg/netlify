@@ -1,6 +1,7 @@
 // netlify/functions/create-session.mjs
-// Crea una sesión de ChatKit (Hosted) via REST.
-// Requisitos: header beta, workflow como objeto { id }, y user.
+// Hosted ChatKit session via REST (requires OpenAI-Beta header).
+// workflow: { id: "wf_..." }   ✅
+// user: "some-user-id"         ✅ (string, no objeto)
 
 export async function handler(event) {
   const headers = {
@@ -8,7 +9,6 @@ export async function handler(event) {
     "Access-Control-Allow-Headers": "Content-Type",
   };
 
-  // Preflight CORS
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers, body: "" };
   }
@@ -20,16 +20,14 @@ export async function handler(event) {
     if (!API_KEY) throw new Error("Missing OPENAI_API_KEY");
     if (!WF_ID)   throw new Error("Missing WORKFLOW_ID");
 
-    // user opcional desde el body; si no llega, generamos uno
+    // Lee userId opcional del body; si no, genera uno
     let bodyUserId;
     try {
       const parsed = JSON.parse(event.body || "{}");
       bodyUserId = parsed.userId;
     } catch {}
+    const userId = bodyUserId || `anon-${crypto.randomUUID()}`; // 👈 string
 
-    const userId = bodyUserId || `anon-${crypto.randomUUID()}`;
-
-    // Llamada REST con headers necesarios
     const response = await fetch("https://api.openai.com/v1/chatkit/sessions", {
       method: "POST",
       headers: {
@@ -38,10 +36,8 @@ export async function handler(event) {
         "OpenAI-Beta": "chatkit_beta=v1",
       },
       body: JSON.stringify({
-        // 👇 workflow debe ser un objeto con id
-        workflow: { id: WF_ID },
-        // no envíes "version" aquí
-        user: { id: userId },
+        workflow: { id: WF_ID }, // 👈 objeto con id
+        user: userId,            // 👈 string (no { id: ... })
       }),
     });
 

@@ -1,7 +1,5 @@
 // netlify/functions/create-session.mjs
-// Hosted ChatKit session via REST (requires OpenAI-Beta header).
-// workflow: { id: "wf_..." }   ✅
-// user: "some-user-id"         ✅ (string, no objeto)
+// Crea sesión Hosted de ChatKit vía REST (con diagnóstico ampliado).
 
 export async function handler(event) {
   const headers = {
@@ -20,15 +18,15 @@ export async function handler(event) {
     if (!API_KEY) throw new Error("Missing OPENAI_API_KEY");
     if (!WF_ID)   throw new Error("Missing WORKFLOW_ID");
 
-    // Lee userId opcional del body; si no, genera uno
+    // user opcional desde body; si no, generamos uno
     let bodyUserId;
     try {
       const parsed = JSON.parse(event.body || "{}");
       bodyUserId = parsed.userId;
     } catch {}
-    const userId = bodyUserId || `anon-${crypto.randomUUID()}`; // 👈 string
+    const userId = bodyUserId || `anon-${crypto.randomUUID()}`;
 
-    const response = await fetch("https://api.openai.com/v1/chatkit/sessions", {
+    const resp = await fetch("https://api.openai.com/v1/chatkit/sessions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -36,18 +34,41 @@ export async function handler(event) {
         "OpenAI-Beta": "chatkit_beta=v1",
       },
       body: JSON.stringify({
-        workflow: { id: WF_ID }, // 👈 objeto con id
-        user: userId,            // 👈 string (no { id: ... })
+        workflow: { id: WF_ID }, // <- objeto { id }
+        user: userId,            // <- string
       }),
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data?.error?.message || JSON.stringify(data));
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      // Propaga error crudo de la API para verlo en Network → Response
+      return {
+        statusCode: resp.status,
+        headers,
+        body: JSON.stringify({
+          upstream_status: resp.status,
+          upstream_error: data?.error || data,
+        }),
+      };
     }
 
-    const secret = data?.client_secret?.value;
-    if (!secret) throw new Error("No client_secret.value found in API response");
+    // Acepta ambos formatos por si la API cambia:
+    const secret =
+      (data && data.client_secret && data.client_secret.value) ||
+      (typeof data?.client_secret === "string" ? data.client_secret : undefined);
+
+    if (!secret) {
+      // Devuelve el payload completo para inspección
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({
+          error: "No client_secret found in API response",
+          raw_response: data,
+        }),
+      };
+    }
 
     return {
       statusCode: 200,
@@ -58,7 +79,7 @@ export async function handler(event) {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: err.message || String(err) }),
+      body: JSON.stringify({ error: err?.message || String(err) }),
     };
   }
 }
